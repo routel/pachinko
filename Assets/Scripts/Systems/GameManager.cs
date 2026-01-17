@@ -2,35 +2,60 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
-
 public class GameManager : MonoBehaviour
 {
-
     public static GameManager Instance { get; private set; }
 
-    [SerializeField] private TMP_Text counterText; // UIñ≥ÇµÇ»ÇÁñ¢ê›íËÇ≈OK
-    public int Count { get; private set; }
+    [Header("UI (optional)")]
+    [SerializeField] private TMP_Text inCounterText;   // IN: ÇÃï\é¶
+    [SerializeField] private TMP_Text ballsText;       // BALLS: ÇÃï\é¶
+
+    [Header("Game Values")]
+    [SerializeField] private int startBalls = 100;
+
+    public int InCount { get; private set; }
+    public int Balls { get; private set; }
 
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this.gameObject);
+            Destroy(gameObject);
+            return;
         }
-        else
-        {
-            Instance = this;
-            DontDestroyOnLoad(this.gameObject);
-        }
+        Instance = this;
     }
 
-    public void AddCount(int add)
+    private void Start()
     {
-        Count += add;
+        Balls = startBalls;
+        RefreshUI();
+    }
 
-        if (counterText != null)
-            counterText.text = $"IN: {Count}";
+    public bool TryConsumeBall(int amount = 1)
+    {
+        if (Balls < amount) return false;
+        Balls -= amount;
+        RefreshUI();
+        return true;
+    }
 
-        Debug.Log($"Ball In! Count = {Count}");
+    public void AddBalls(int amount)
+    {
+        Balls += amount;
+        RefreshUI();
+    }
+
+    public void AddInCount(int add)
+    {
+        InCount += add;
+        RefreshUI();
+        Debug.Log($"Ball In! InCount = {InCount}");
+    }
+
+    private void RefreshUI()
+    {
+        if (inCounterText != null) inCounterText.text = $"IN: {InCount}";
+        if (ballsText != null) ballsText.text = $"BALLS: {Balls}";
     }
 }

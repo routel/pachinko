@@ -53,7 +53,21 @@ public class DragPlungerLauncher : MonoBehaviour
     {
         if (ballPrefab == null || spawnPoint == null) return;
 
+        // ★ここで必ず消費する（成功したら弾を出す）
+        if (GameManager.Instance != null)
+        {
+            bool ok = GameManager.Instance.TryConsumeBall(1);
+            Debug.Log($"TryConsumeBall -> {ok}, BallsNow={GameManager.Instance.Balls}");
+
+            if (!ok)
+            {
+                Debug.Log("No balls left! (shoot canceled)");
+                return;
+            }
+        }
+
         var go = Instantiate(ballPrefab, spawnPoint.position, Quaternion.identity);
+
         var rb = go.GetComponent<Rigidbody2D>();
         if (rb == null) return;
 
@@ -64,7 +78,7 @@ public class DragPlungerLauncher : MonoBehaviour
         float force = power * Mathf.Lerp(0.2f, 1.0f, pull01);
 
         rb.AddForce(dir * force, ForceMode2D.Impulse);
-        Debug.Log($"Shoot pull={pull01:0.00} force={force:0.0}");
+        Debug.Log($"Shoot! pull={pull01:0.00} force={force:0.0}");
     }
 
     private Vector3 GetMouseWorld()
