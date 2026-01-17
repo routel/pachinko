@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 5153297923672258281}
   - component: {fileID: 1341586280835610649}
   - component: {fileID: 6877883913490311195}
-  - component: {fileID: -5741776018687378034}
+  - component: {fileID: -2827292666709001360}
   m_Layer: 0
   m_Name: Hole
   m_TagString: Untagged
@@ -102,7 +102,7 @@ CircleCollider2D:
   m_Offset: {x: 0, y: 0}
   serializedVersion: 2
   m_Radius: 0.5
---- !u!114 &-5741776018687378034
+--- !u!114 &-2827292666709001360
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -111,8 +111,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 7939797628392490242}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 42bede76cf49cf84e86ff47aae2e85cb, type: 3}
+  m_Script: {fileID: 11500000, guid: ed766fa9a36aa5942918d1e1ce654962, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  addCount: 1
+  config: {fileID: 0}
   ballTag: Ball

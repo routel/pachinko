@@ -15,6 +15,8 @@ public class GameManager : MonoBehaviour
 
     public int InCount { get; private set; }
     public int Balls { get; private set; }
+    public bool IsHit { get; private set; }
+
 
     private void Awake()
     {
@@ -58,4 +60,21 @@ public class GameManager : MonoBehaviour
         if (inCounterText != null) inCounterText.text = $"IN: {InCount}";
         if (ballsText != null) ballsText.text = $"BALLS: {Balls}";
     }
+
+    public void BeginHit(float hitTimeSec)
+    {
+        if (IsHit) return;
+        StartCoroutine(CoHit(hitTimeSec));
+    }
+
+    private IEnumerator CoHit(float hitTimeSec)
+    {
+        IsHit = true;
+        RefreshUI(); // ‚ ‚é‚È‚ç
+        yield return new WaitForSeconds(hitTimeSec);
+        IsHit = false;
+        RefreshUI(); // ‚ ‚é‚È‚ç
+    }
+
+
 }
