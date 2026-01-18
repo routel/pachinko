@@ -1,13 +1,11 @@
-using System.Collections;
 using UnityEngine;
+using DG.Tweening;
 
 public class HoleTrigger : MonoBehaviour
 {
-
     [Header("Gate (for Prize)")]
-    [SerializeField] private bool isGateControlled = false; // アタッカーとして開閉するか
-    [SerializeField] private Collider2D gateCollider;       // 開閉するCollider（未指定なら自分のCollider）
-
+    [SerializeField] private bool isGateControlled = false;
+    [SerializeField] private Collider2D gateCollider;
 
     [Header("Entity Data")]
     [SerializeField] private HoleConfig config;
@@ -16,12 +14,13 @@ public class HoleTrigger : MonoBehaviour
     [SerializeField] private string ballTag = "Ball";
 
     [Header("Visibility (for Prize)")]
-    [SerializeField] private bool isVisibilityControlled = false; // 当たり中だけ表示するか
-    [SerializeField] private Renderer[] renderersToToggle;         // 未指定なら自分のRenderer
+    [SerializeField] private bool isVisibilityControlled = false;
+    [SerializeField] private Renderer[] renderersToToggle;
 
+    // 吸い込み中のTweenを持っておく（必要ならキャンセルできる）
+    private Tween currentTween;
 
     private bool lastGateActive;
-
 
     private void Awake()
     {
@@ -37,7 +36,6 @@ public class HoleTrigger : MonoBehaviour
 
     private void Start()
     {
-        // ★ 初回は必ず反映させるため、わざと逆を入れておく
         lastGateActive = !GetDesiredActive();
         ApplyGateVisual(force: true);
     }
@@ -58,22 +56,17 @@ public class HoleTrigger : MonoBehaviour
         if (config == null || config.type != HoleType.Prize) return;
 
         bool active = GetDesiredActive();
-
         if (!force && active == lastGateActive) return;
-        lastGateActive = active;
 
+        lastGateActive = active;
         SetActiveForGate(active);
     }
 
-
-
     public void SetActiveForGate(bool active)
     {
-        // Collider（判定）
         if (isGateControlled && gateCollider != null)
             gateCollider.enabled = active;
 
-        // 見た目（表示）
         if (isVisibilityControlled && renderersToToggle != null)
         {
             foreach (var r in renderersToToggle)
@@ -81,16 +74,22 @@ public class HoleTrigger : MonoBehaviour
         }
     }
 
+    public void SetGateOpen(bool open)
+    {
+        SetActiveForGate(open);
+    }
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (!other.CompareTag(ballTag)) return;
+
         if (config == null)
         {
             Debug.LogError("HoleTrigger: config is not set.");
             return;
         }
 
-        // ★ アタッカー（Prize）は当たり中だけ有効
+        // Prize は当たり中だけ有効
         if (config.type == HoleType.Prize)
         {
             if (GameManager.Instance == null || !GameManager.Instance.IsHit)
@@ -101,23 +100,19 @@ public class HoleTrigger : MonoBehaviour
         if (other.GetComponent<BallHoleGuard>() != null) return;
         other.gameObject.AddComponent<BallHoleGuard>();
 
-        StartCoroutine(SuctionAndApply(other.gameObject));
+        SuctionAndApplyTween(other.gameObject);
     }
 
-
-    public void SetGateOpen(bool open)
+    private void SuctionAndApplyTween(GameObject ball)
     {
-        // Colliderだけでなく、可視も含めて統合
-        SetActiveForGate(open);
-    }
+        // もし同一ボールにTweenが残っていたら止める
+        // （同じballが二重に入った等の事故防止。基本ここには来ないが安全策）
+        if (currentTween != null && currentTween.IsActive())
+            currentTween.Kill();
 
-
-    private IEnumerator SuctionAndApply(GameObject ball)
-    {
-        // 吸い込み開始前に “機能” を確定（演出は後）
+        // ★ 吸い込み開始前に“機能”を確定
         ApplyLogic();
 
-        // 吸い込み（既存の仕組みと同等）
         var rb = ball.GetComponent<Rigidbody2D>();
         var col = ball.GetComponent<Collider2D>();
 
@@ -131,39 +126,41 @@ public class HoleTrigger : MonoBehaviour
             rb.isKinematic = true;
         }
 
-        Vector3 startPos = ball.transform.position;
+        float duration = Mathf.Max(0.01f, config.suctionTime);
         Vector3 targetPos = transform.position;
+
         Vector3 startScale = ball.transform.localScale;
         Vector3 targetScale = startScale * config.endScale;
 
-        float t = 0f;
-        float duration = Mathf.Max(0.01f, config.suctionTime);
+        // 演出が安定するように、Transformを明示的に掴む
+        Transform bt = ball.transform;
 
-        while (t < duration)
+        // DOTween：位置＋スケールを同時に
+        Sequence seq = DOTween.Sequence();
+
+        seq.Join(bt.DOMove(targetPos, duration).SetEase(Ease.InQuad));
+        seq.Join(bt.DOScale(targetScale, duration).SetEase(Ease.InQuad));
+
+        // ballが途中でDestroyされたら自動Kill（事故防止）
+        seq.SetLink(ball, LinkBehaviour.KillOnDestroy);
+
+        seq.OnComplete(() =>
         {
-            t += Time.deltaTime;
-            float p = Mathf.Clamp01(t / duration);
+            if (ball != null)
+                Destroy(ball);
+        });
 
-            ball.transform.position = Vector3.Lerp(startPos, targetPos, p);
-            ball.transform.localScale = Vector3.Lerp(startScale, targetScale, p);
-
-            yield return null;
-        }
-
-        Destroy(ball);
+        currentTween = seq;
     }
 
     private void ApplyLogic()
     {
-        // INカウント（必要なら）
         if (GameManager.Instance != null && config.addInCount != 0)
             GameManager.Instance.AddInCount(config.addInCount);
 
-        // 種別ごとの処理
         switch (config.type)
         {
             case HoleType.Start:
-                // 抽選を回す（賞球は基本0でOK。必要なら config.prizeBalls を設定）
                 if (LotteryManager.Instance != null)
                     LotteryManager.Instance.DoLottery();
 
@@ -172,17 +169,14 @@ public class HoleTrigger : MonoBehaviour
                 break;
 
             case HoleType.Prize:
-                // 賞球（アタッカー）
                 if (GameManager.Instance != null && config.prizeBalls != 0)
                     GameManager.Instance.AddBalls(config.prizeBalls);
                 break;
 
             case HoleType.Out:
-                // Outは吸い込み後に消えるだけ（賞球なし）
                 break;
         }
     }
 
-    // 多重判定防止用
     private class BallHoleGuard : MonoBehaviour { }
 }

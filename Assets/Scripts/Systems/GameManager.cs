@@ -52,7 +52,7 @@ public class GameManager : MonoBehaviour
     {
         InCount += add;
         RefreshUI();
-        Debug.Log($"Ball In! InCount = {InCount}");
+        //Debug.Log($"Ball In! InCount = {InCount}");
     }
 
     private void RefreshUI()

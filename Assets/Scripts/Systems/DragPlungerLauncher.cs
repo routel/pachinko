@@ -57,7 +57,7 @@ public class DragPlungerLauncher : MonoBehaviour
         if (GameManager.Instance != null)
         {
             bool ok = GameManager.Instance.TryConsumeBall(1);
-            Debug.Log($"TryConsumeBall -> {ok}, BallsNow={GameManager.Instance.Balls}");
+            //Debug.Log($"TryConsumeBall -> {ok}, BallsNow={GameManager.Instance.Balls}");
 
             if (!ok)
             {
@@ -78,7 +78,7 @@ public class DragPlungerLauncher : MonoBehaviour
         float force = power * Mathf.Lerp(0.2f, 1.0f, pull01);
 
         rb.AddForce(dir * force, ForceMode2D.Impulse);
-        Debug.Log($"Shoot! pull={pull01:0.00} force={force:0.0}");
+        //Debug.Log($"Shoot! pull={pull01:0.00} force={force:0.0}");
     }
 
     private Vector3 GetMouseWorld()
