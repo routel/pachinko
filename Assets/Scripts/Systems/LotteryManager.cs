@@ -1,35 +1,23 @@
-using System.Collections;
+using DG.Tweening;
+using System;
 using UnityEngine;
 
 public class LotteryManager : MonoBehaviour
 {
     public static LotteryManager Instance { get; private set; }
 
-
-    [SerializeField] private SlotMachineTweenUI slotUI;
-
     [Header("Lottery")]
     [Range(0f, 1f)]
     [SerializeField] private float winRate = 0.05f;
 
+    [Header("Hit (Prize Gate Open Time)")]
+    [SerializeField] private float hitDuration = 8.0f;
 
-    [Header("Gates")]
-    [SerializeField] private HoleTrigger[] prizeGates; // Prize穴（開閉対象）をここに登録
+    [Header("UI")]
+    [SerializeField] private SlotMachineTweenUI slotUI;
+    [SerializeField] private ReachDirector reachDirector;
 
-    [Header("Win Setting")]
-    [SerializeField] private float hitTimeSec = 10f;
-
-    [Header("Symbols")]
-    [SerializeField] private int symbolCount = 6;
-    [SerializeField] private int winSymbolIndex = 0; // 例：7の位置
-
-    [Header("Win")]
-    [SerializeField] private int winPercent = 15;
-    [SerializeField] private float winDuration = 10f; // 当たり中（アタッカー開放時間）
-
-    public bool IsWin { get; private set; }
-
-    private Coroutine winRoutine;
+    [SerializeField] private float loseHoldSeconds = 2.0f;
 
     private void Awake()
     {
@@ -41,94 +29,71 @@ public class LotteryManager : MonoBehaviour
         Instance = this;
     }
 
-    private void Start()
+    public void PlayFromStartHole()
     {
-        // 起動時は閉じる
-        SetPrizeGates(false);
-        IsWin = false;
-    }
+        bool isWin = (UnityEngine.Random.value < winRate);
 
-    public void DoLottery()
-    {
+        int L = UnityEngine.Random.Range(1, 10);
+        int C = UnityEngine.Random.Range(1, 10);
+        int R = UnityEngine.Random.Range(1, 10);
+
+        if (isWin)
+        {
+            int v = UnityEngine.Random.Range(1, 10);
+            L = C = R = v;
+        }
+
+        bool isReach = (L == R); // 今回は「左右一致」をリーチ条件にする
+
+        Debug.Log($"[LOTTERY] isWin={isWin} reach={isReach} TARGET(L,C,R)=({L},{C},{R})");
+
         if (slotUI == null)
         {
-            Debug.LogError("LotteryManager: slotUI not set.");
+            Debug.LogError("LotteryManager: slotUI is not set.");
             return;
         }
-        if (slotUI.IsSpinning) return;
 
-        bool win = Random.Range(0, 100) < winPercent;
+        // ★ 中央停止直前で止める
+        slotUI.StartSpinWithTargets(
+            L, C, R,
+            onBeforeStopCenter: (resume) =>
+            {
+                // リーチ時だけPUSH待ち（この間、中央は回り続ける）
+                if (isReach && reachDirector != null)
+                {
+                    reachDirector.PlayReachUntilPush(isWin, () =>
+                    {
+                        resume(); // PUSH後に中央停止へ
+                    });
+                }
+                else
+                {
+                    // リーチじゃないなら即続行
+                    resume();
+                }
+            },
+            onFinished: () =>
+            {
+                void FinishAndMaybeHide()
+                {
+                    if (isWin && GameManager.Instance != null)
+                        GameManager.Instance.BeginHit(hitDuration);
 
-        int ToIndex(int number1to9) => Mathf.Clamp(number1to9, 1, 9) - 1;
+                    if (!isWin && loseHoldSeconds > 0f)
+                    {
+                        DOVirtual.DelayedCall(loseHoldSeconds, () => slotUI.Hide());
+                    }
+                    else
+                    {
+                        slotUI.Hide();
+                    }
+                }
 
-        int winNumber = 7;
-        int tL, tC, tR;
-
-        if (win)
-        {
-            tL = ToIndex(winNumber);
-            tC = ToIndex(winNumber);
-            tR = ToIndex(winNumber);
-        }
-        else
-        {
-            int nL = Random.Range(1, 10);
-            int nR = Random.Range(1, 10);
-            int nC = Random.Range(1, 10);
-            if (nL == nR && nR == nC) nC = (nC % 9) + 1;
-
-            tL = ToIndex(nL);
-            tR = ToIndex(nR);
-            tC = ToIndex(nC);
-        }
-
-        slotUI.StartSpinWithTargets(tL, tC, tR, () =>
-        {
-            if (win) GameManager.Instance?.BeginHit(winDuration);
-        });
-
-    }
-
-    private void HideSlot()
-    {
-        slotUI.Hide();
-    }
-
-    private void StartWin()
-    {
-        // すでに当たり中なら延長（リセット）する
-        if (winRoutine != null)
-            StopCoroutine(winRoutine);
-
-        winRoutine = StartCoroutine(WinSequence());
-    }
-
-    private IEnumerator WinSequence()
-    {
-        IsWin = true;
-
-        // ★ WIN開始と同時に IsHit をON（表示条件に使っているならここ）
-        GameManager.Instance.BeginHit(winDuration);
-
-        SetPrizeGates(true);
-        Debug.Log("WIN STATE: START (gates open)");
-
-        yield return new WaitForSeconds(winDuration);
-
-        SetPrizeGates(false);
-        IsWin = false;
-        winRoutine = null;
-        Debug.Log("WIN STATE: END (gates closed)");
-    }
-
-
-    private void SetPrizeGates(bool open)
-    {
-        if (prizeGates == null) return;
-
-        foreach (var g in prizeGates)
-        {
-            if (g != null) g.SetGateOpen(open);
-        }
+                if (isReach && reachDirector != null)
+                    reachDirector.PlayResultOnly(isWin, FinishAndMaybeHide);
+                else
+                    FinishAndMaybeHide();
+            }
+        );
     }
 }

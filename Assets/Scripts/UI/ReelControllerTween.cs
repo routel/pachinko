@@ -26,6 +26,9 @@ public class ReelControllerTween : MonoBehaviour
     [SerializeField] private float stopStepDuration = 0.12f; // 最後の1ステップだけゆっくり
     [SerializeField] private Ease stopEase = Ease.OutCubic;
 
+    [SerializeField] private float loopSpeed = 1600f;
+    private float loopY; // 連続移動の累積
+
     private Image[] cells;
     private float itemH;
     private int symbolCount;
@@ -139,19 +142,37 @@ public class ReelControllerTween : MonoBehaviour
         }
     }
 
-    /// <summary>回し始め（無限ループ）</summary>
+    /// <summary>回し始め（見た目が連続で流れる無限ループ）</summary>
     public void StartLoop()
     {
+        if (spinning) return;
+
         KillTweens();
         spinning = true;
 
-        // ★絶対に 0 → -itemH → 0 に戻す（ズレが蓄積しない）
+        // 位置初期化
+        loopY = 0f;
         content.anchoredPosition = Vector2.zero;
 
-        loopTween = DOTween.Sequence()
-            .Append(content.DOAnchorPosY(-itemH, stepDuration).SetEase(stepEase)) // 絶対値で -itemH
-            .AppendCallback(StepOneSnap)                                         // 0に戻して絵柄送り
-            .SetLoops(-1, LoopType.Restart);
+        // ★毎フレーム動かす。RectMask2Dでも確実に「流れて見える」
+        loopTween = DOTween.To(() => 0f, _ => { }, 1f, 9999f)
+            .SetEase(Ease.Linear)
+            .SetUpdate(true)
+            .OnUpdate(() =>
+            {
+                // unscaledDeltaTime を使う（演出中にtimeScale変えても止まらない）
+                loopY -= loopSpeed * Time.unscaledDeltaTime;
+
+                // 1段分流れたら巻き戻して絵柄更新（連続的に見える）
+                while (loopY <= -itemH)
+                {
+                    loopY += itemH;
+                    topSymbolIndex = (topSymbolIndex + 1) % symbolCount;
+                    ApplySpritesFromTopIndex();
+                }
+
+                content.anchoredPosition = new Vector2(0f, loopY);
+            });
     }
 
     /// <summary>
@@ -165,10 +186,10 @@ public class ReelControllerTween : MonoBehaviour
 
         if (loopTween != null && loopTween.IsActive()) loopTween.Kill();
 
-        // ★現在の結果セルの値
+        // 現在の結果セル値
         int currentResult = (topSymbolIndex + resultCellIndex) % symbolCount;
 
-        // extraSteps後の値
+        // extraSteps後
         int afterExtra = (currentResult + (extraSteps % symbolCount)) % symbolCount;
 
         // targetへ必要な追加ステップ
@@ -177,28 +198,50 @@ public class ReelControllerTween : MonoBehaviour
 
         int totalSteps = extraSteps + need;
 
-        var seq = DOTween.Sequence();
+        var s = DOTween.Sequence();
 
-        // 念のため開始位置を0に固定
-        seq.AppendCallback(() => content.anchoredPosition = Vector2.zero);
+        // ループ中の位置を引き継ぐ
+        float y = loopY;
 
-        // 途中は一定速度
+        // 途中：一定速度（連続的に下へ）
         for (int i = 0; i < Mathf.Max(0, totalSteps); i++)
         {
-            seq.Append(content.DOAnchorPosY(-itemH, stepDuration).SetEase(stepEase));
-            seq.AppendCallback(StepOneSnap);
+            s.Append(DOTween.To(() => y, v => y = v, y - itemH, stepDuration)
+                .SetEase(stepEase)
+                .SetUpdate(true)
+                .OnUpdate(() => content.anchoredPosition = new Vector2(0f, y)));
+
+            s.AppendCallback(() =>
+            {
+                // 1段進んだので巻き戻し＋絵柄更新
+                y += itemH;
+                topSymbolIndex = (topSymbolIndex + 1) % symbolCount;
+                ApplySpritesFromTopIndex();
+                content.anchoredPosition = new Vector2(0f, y);
+            });
         }
 
-        // 最後の1ステップだけ減速
-        seq.Append(content.DOAnchorPosY(-itemH, stopStepDuration).SetEase(stopEase));
-        seq.AppendCallback(() =>
+        // 最後だけ減速
+        s.Append(DOTween.To(() => y, v => y = v, y - itemH, stopStepDuration)
+            .SetEase(stopEase)
+            .SetUpdate(true)
+            .OnUpdate(() => content.anchoredPosition = new Vector2(0f, y)));
+
+        s.AppendCallback(() =>
         {
-            StepOneSnap();
+            y += itemH;
+            topSymbolIndex = (topSymbolIndex + 1) % symbolCount;
+            ApplySpritesFromTopIndex();
+
+            // 停止後は基準に戻す（ズレ蓄積防止）
+            loopY = 0f;
+            content.anchoredPosition = Vector2.zero;
+
             spinning = false;
             onComplete?.Invoke();
         });
 
-        return seq;
+        return s;
     }
 
     /// <summary>

@@ -25,14 +25,14 @@ public class DragPlungerLauncher : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(1))
         {
             isDragging = true;
             dragStartWorld = GetMouseWorld();
             pull01 = 0f;
         }
 
-        if (isDragging && Input.GetMouseButton(0))
+        if (isDragging && Input.GetMouseButton(1))
         {
             Vector3 now = GetMouseWorld();
 
@@ -42,7 +42,7 @@ public class DragPlungerLauncher : MonoBehaviour
             pull01 = pull / maxPullDistance;
         }
 
-        if (isDragging && Input.GetMouseButtonUp(0))
+        if (isDragging && Input.GetMouseButtonUp(1))
         {
             isDragging = false;
             Shoot(pull01);

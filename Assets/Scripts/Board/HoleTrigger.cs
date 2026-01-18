@@ -17,9 +17,6 @@ public class HoleTrigger : MonoBehaviour
     [SerializeField] private bool isVisibilityControlled = false;
     [SerializeField] private Renderer[] renderersToToggle;
 
-    // 吸い込み中のTweenを持っておく（必要ならキャンセルできる）
-    private Tween currentTween;
-
     private bool lastGateActive;
 
     private void Awake()
@@ -64,9 +61,11 @@ public class HoleTrigger : MonoBehaviour
 
     public void SetActiveForGate(bool active)
     {
+        // Collider（判定）
         if (isGateControlled && gateCollider != null)
             gateCollider.enabled = active;
 
+        // 見た目（表示）
         if (isVisibilityControlled && renderersToToggle != null)
         {
             foreach (var r in renderersToToggle)
@@ -89,7 +88,7 @@ public class HoleTrigger : MonoBehaviour
             return;
         }
 
-        // Prize は当たり中だけ有効
+        // Prizeは当たり中だけ有効
         if (config.type == HoleType.Prize)
         {
             if (GameManager.Instance == null || !GameManager.Instance.IsHit)
@@ -105,17 +104,13 @@ public class HoleTrigger : MonoBehaviour
 
     private void SuctionAndApplyTween(GameObject ball)
     {
-        // もし同一ボールにTweenが残っていたら止める
-        // （同じballが二重に入った等の事故防止。基本ここには来ないが安全策）
-        if (currentTween != null && currentTween.IsActive())
-            currentTween.Kill();
-
-        // ★ 吸い込み開始前に“機能”を確定
+        // 吸い込み開始前に“機能”を確定
         ApplyLogic();
 
         var rb = ball.GetComponent<Rigidbody2D>();
         var col = ball.GetComponent<Collider2D>();
 
+        // 以降は演出専用にして物理を止める
         if (col != null) col.enabled = false;
 
         if (rb != null)
@@ -126,35 +121,32 @@ public class HoleTrigger : MonoBehaviour
             rb.isKinematic = true;
         }
 
-        float duration = Mathf.Max(0.01f, config.suctionTime);
-        Vector3 targetPos = transform.position;
-
-        Vector3 startScale = ball.transform.localScale;
-        Vector3 targetScale = startScale * config.endScale;
-
-        // 演出が安定するように、Transformを明示的に掴む
         Transform bt = ball.transform;
 
-        // DOTween：位置＋スケールを同時に
-        Sequence seq = DOTween.Sequence();
+        // その玉に紐づくTweenだけ消す（他の玉に影響しない）
+        bt.DOKill();
 
-        seq.Join(bt.DOMove(targetPos, duration).SetEase(Ease.InQuad));
-        seq.Join(bt.DOScale(targetScale, duration).SetEase(Ease.InQuad));
+        float duration = Mathf.Max(0.01f, config.suctionTime);
 
-        // ballが途中でDestroyされたら自動Kill（事故防止）
-        seq.SetLink(ball, LinkBehaviour.KillOnDestroy);
+        Vector3 startScale = bt.localScale;
+        Vector3 targetScale = startScale * config.endScale;
 
-        seq.OnComplete(() =>
-        {
-            if (ball != null)
-                Destroy(ball);
-        });
+        Vector3 targetPos = transform.position;
 
-        currentTween = seq;
+        Sequence seq = DOTween.Sequence()
+            .Join(bt.DOMove(targetPos, duration).SetEase(Ease.InQuad))
+            .Join(bt.DOScale(targetScale, duration).SetEase(Ease.InQuad))
+            .SetLink(ball, LinkBehaviour.KillOnDestroy)
+            .OnComplete(() =>
+            {
+                if (ball != null)
+                    Destroy(ball);
+            });
     }
 
     private void ApplyLogic()
     {
+        // INカウント
         if (GameManager.Instance != null && config.addInCount != 0)
             GameManager.Instance.AddInCount(config.addInCount);
 
@@ -162,10 +154,7 @@ public class HoleTrigger : MonoBehaviour
         {
             case HoleType.Start:
                 if (LotteryManager.Instance != null)
-                    LotteryManager.Instance.DoLottery();
-
-                if (GameManager.Instance != null && config.prizeBalls != 0)
-                    GameManager.Instance.AddBalls(config.prizeBalls);
+                    LotteryManager.Instance.PlayFromStartHole();
                 break;
 
             case HoleType.Prize:
@@ -178,5 +167,6 @@ public class HoleTrigger : MonoBehaviour
         }
     }
 
+    // 多重判定防止用
     private class BallHoleGuard : MonoBehaviour { }
 }

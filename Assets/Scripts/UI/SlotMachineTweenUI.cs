@@ -25,11 +25,20 @@ public class SlotMachineTweenUI : MonoBehaviour
         if (slotPanel != null) slotPanel.SetActive(false);
     }
 
-    /// <summary>
-    /// tL,tC,tR は「1～9」を想定（slot_1..slot_9）
-    /// 停止順：左→右→中央
-    /// </summary>
+    // 互換：待機なし（従来どおり）
     public void StartSpinWithTargets(int tL, int tC, int tR, System.Action onFinished)
+    {
+        StartSpinWithTargets(tL, tC, tR, null, onFinished);
+    }
+
+    /// <summary>
+    /// 右停止後～中央停止前に onBeforeStopCenter(resume) を呼ぶ。
+    /// PUSHが押されたら resume() を呼ぶと中央停止へ進む。
+    /// </summary>
+    public void StartSpinWithTargets(
+        int tL, int tC, int tR,
+        System.Action<System.Action> onBeforeStopCenter,
+        System.Action onFinished)
     {
         if (reelL == null || reelC == null || reelR == null)
         {
@@ -38,10 +47,8 @@ public class SlotMachineTweenUI : MonoBehaviour
             return;
         }
 
-        // パネル表示
         if (slotPanel != null) slotPanel.SetActive(true);
 
-        // 既存シーケンス停止
         if (seq != null && seq.IsActive()) seq.Kill();
         seq = null;
 
@@ -49,13 +56,14 @@ public class SlotMachineTweenUI : MonoBehaviour
         int iL = Mathf.Clamp(tL - 1, 0, 8);
         int iC = Mathf.Clamp(tC - 1, 0, 8);
         int iR = Mathf.Clamp(tR - 1, 0, 8);
-        Debug.Log($"[SLOT RESULT ] 左:{iL + 1} 中:{iC + 1} 右:{iR + 1}");
-        // ループ開始
+
+        Debug.Log($"[SLOT TARGET] L={iL + 1} C={iC + 1} R={iR + 1}");
+
+        // ★ 3つとも回し始める（中央はPUSHまで回り続ける）
         reelL.StartLoop();
         reelC.StartLoop();
         reelR.StartLoop();
 
-        // 停止シーケンス（フィールド seq だけを使う）
         seq = DOTween.Sequence();
         seq.AppendInterval(preSpinTime);
 
@@ -67,6 +75,32 @@ public class SlotMachineTweenUI : MonoBehaviour
         seq.Append(reelR.StopAt(iR, extraSteps, null));
         seq.AppendInterval(stopGap);
 
+        Debug.Log("CENTER spinning=" + reelC.IsSpinning);
+
+        // ★ 右停止後に「待機」を挟む（ここでseqを止める）
+        if (onBeforeStopCenter != null)
+        {
+            seq.AppendCallback(() =>
+            {
+                Debug.Log("[Slot] BEFORE CENTER STOP -> pause (center should keep looping)");
+
+                // 念のため中央ループが動いていることを保証（StartLoopが二重起動でまずいならReel側でガード）
+                reelC.StartLoop();
+
+                // ここで停止 → resume() で再開
+                seq.Pause();
+
+                onBeforeStopCenter.Invoke(() =>
+                {
+                    Debug.Log("[Slot] RESUME -> center stop");
+                    if (seq != null && seq.IsActive()) seq.Play();
+                });
+            });
+
+            // Pause位置確保
+            seq.AppendInterval(0f);
+        }
+
         // 中央停止（最後に完了通知）
         seq.Append(reelC.StopAt(iC, extraSteps, onFinished));
     }
@@ -75,7 +109,6 @@ public class SlotMachineTweenUI : MonoBehaviour
     {
         if (seq != null && seq.IsActive()) seq.Kill();
         seq = null;
-
         if (slotPanel != null) slotPanel.SetActive(false);
     }
 }
