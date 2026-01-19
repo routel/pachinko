@@ -34,12 +34,10 @@ public class ReelControllerTween : MonoBehaviour
     private int symbolCount;
 
     private Tween loopTween;
+    private Tween stopTween;   // ★StopAtで作ったSequenceを保持
     private bool spinning;
 
-    // 連続移動の累積
     private float loopY;
-
-    // 「cells[0]（最上段）」に来ている絵柄 index（0..8）
     private int topSymbolIndex = 0;
 
     public bool IsSpinning => spinning;
@@ -137,19 +135,21 @@ public class ReelControllerTween : MonoBehaviour
     }
 
     /// <summary>回し始め（無限ループ）</summary>
-    public void StartLoop()
+    public void StartLoop(bool forceRestart = false)
     {
-        if (spinning) return;
+        if (spinning && !forceRestart) return;
 
-        KillTweens();
+        KillTweens(); // ★loop/stop両方を必ず殺す
         spinning = true;
 
         loopY = 0f;
         content.anchoredPosition = Vector2.zero;
 
+        // ★targetをcontentにする（Kill(content)が効く）
         loopTween = DOTween.To(() => 0f, _ => { }, 1f, 9999f)
             .SetEase(Ease.Linear)
             .SetUpdate(true)
+            .SetTarget(content)
             .OnUpdate(() =>
             {
                 loopY -= loopSpeed * Time.unscaledDeltaTime;
@@ -174,53 +174,53 @@ public class ReelControllerTween : MonoBehaviour
         if (extraSteps < 0) extraSteps = defaultExtraSteps;
         targetIndex = Mathf.Clamp(targetIndex, 0, symbolCount - 1);
 
-        // ★止める時点でループを止める（左右はここで止まってOK）
+        // ★停止Tweenが残ってたら殺す（競合防止）
+        if (stopTween != null && stopTween.IsActive()) stopTween.Kill();
+        stopTween = null;
+
+        // ★ループを止める
         if (loopTween != null && loopTween.IsActive()) loopTween.Kill();
         loopTween = null;
 
-        // 現在の結果セル値
         int currentResult = (topSymbolIndex + resultCellIndex) % symbolCount;
-
-        // extraSteps後
         int afterExtra = (currentResult + (extraSteps % symbolCount)) % symbolCount;
 
-        // targetへ必要な追加ステップ
         int need = targetIndex - afterExtra;
         if (need < 0) need += symbolCount;
 
         int totalSteps = extraSteps + need;
 
-        var s = DOTween.Sequence();
-        s.SetUpdate(true);
+        var s = DOTween.Sequence().SetUpdate(true).SetTarget(content);
+        stopTween = s;
 
-        // ループ中の位置を引き継ぐ
         float y = loopY;
 
-        // 途中：一定速度
         for (int i = 0; i < Mathf.Max(0, totalSteps); i++)
         {
-            s.Append(DOTween.To(() => y, v => y = v, y - itemH, Mathf.Max(0.001f, stepDuration))
-                .SetEase(stepEase)
-                .SetUpdate(true)
-                .OnUpdate(() => content.anchoredPosition = new Vector2(0f, y)));
+            s.Append(
+                DOTween.To(() => y, v => y = v, y - itemH, Mathf.Max(0.001f, stepDuration))
+                    .SetEase(stepEase)
+                    .SetUpdate(true)
+                    .SetTarget(content)
+                    .OnUpdate(() => content.anchoredPosition = new Vector2(0f, y))
+            );
 
             s.AppendCallback(() =>
             {
-                // 1段進んだので巻き戻し＋絵柄更新
                 y += itemH;
                 topSymbolIndex = (topSymbolIndex + 1) % symbolCount;
                 ApplySpritesFromTopIndex();
-
-                // ★確定
                 content.anchoredPosition = new Vector2(0f, y);
             });
         }
 
-        // 最後だけ減速
-        s.Append(DOTween.To(() => y, v => y = v, y - itemH, Mathf.Max(0.001f, stopStepDuration))
-            .SetEase(stopEase)
-            .SetUpdate(true)
-            .OnUpdate(() => content.anchoredPosition = new Vector2(0f, y)));
+        s.Append(
+            DOTween.To(() => y, v => y = v, y - itemH, Mathf.Max(0.001f, stopStepDuration))
+                .SetEase(stopEase)
+                .SetUpdate(true)
+                .SetTarget(content)
+                .OnUpdate(() => content.anchoredPosition = new Vector2(0f, y))
+        );
 
         s.AppendCallback(() =>
         {
@@ -228,11 +228,11 @@ public class ReelControllerTween : MonoBehaviour
             topSymbolIndex = (topSymbolIndex + 1) % symbolCount;
             ApplySpritesFromTopIndex();
 
-            // ★停止後は必ず基準(0)に戻す（マスク内停止の安定化）
             loopY = 0f;
             content.anchoredPosition = Vector2.zero;
 
             spinning = false;
+            stopTween = null;
             onComplete?.Invoke();
         });
 
@@ -242,9 +242,14 @@ public class ReelControllerTween : MonoBehaviour
     private void KillTweens()
     {
         if (loopTween != null && loopTween.IsActive()) loopTween.Kill();
-        DOTween.Kill(content);
         loopTween = null;
+
+        if (stopTween != null && stopTween.IsActive()) stopTween.Kill();
+        stopTween = null;
+
+        DOTween.Kill(content); // SetTargetしたので保険として効く
         spinning = false;
+
         loopY = 0f;
         if (content) content.anchoredPosition = Vector2.zero;
     }

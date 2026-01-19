@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using DG.Tweening;
 
 public class SlotMachineTweenUI : MonoBehaviour
 {
@@ -23,26 +23,25 @@ public class SlotMachineTweenUI : MonoBehaviour
     private enum State
     {
         Idle,
-        SpinningLR,     // 左右停止まで進行
-        WaitingPush,    // PUSH待ち（中央は回り続ける）
-        StoppingCenter, // 中央停止中
+        SpinningLR,
+        WaitingPush,
+        StoppingCenter,
     }
 
     private State state = State.Idle;
     public bool IsBusy => state != State.Idle;
 
-    private Sequence seq;
-
-    // “保留（最小版）”
     private struct SpinRequest
     {
-        public int tL, tC, tR; // 1..9
-        public Action<Action> onBeforeStopCenter;
+        public int tL, tC, tR;               // 1..9
+        public Action<Action> onBeforeStopCenter; // リーチ時：PUSH待ちを表示し、resumeを受け取る
         public Action onFinished;
     }
+
     private readonly Queue<SpinRequest> queue = new Queue<SpinRequest>();
 
-    // 中央停止の多重発火防止
+    private Coroutine spinRoutine;
+    private int token = 0;
     private bool centerStopRequested;
 
     private void Awake()
@@ -51,13 +50,10 @@ public class SlotMachineTweenUI : MonoBehaviour
     }
 
     public void StartSpinWithTargets(int tL, int tC, int tR, Action onFinished)
-    {
-        StartSpinWithTargets(tL, tC, tR, null, onFinished);
-    }
+        => StartSpinWithTargets(tL, tC, tR, null, onFinished);
 
     public void StartSpinWithTargets(int tL, int tC, int tR, Action<Action> onBeforeStopCenter, Action onFinished)
     {
-        // 忙しい間は保留へ（待機中に左右が回りだすのを防ぐ）
         if (IsBusy)
         {
             queue.Enqueue(new SpinRequest
@@ -97,78 +93,117 @@ public class SlotMachineTweenUI : MonoBehaviour
 
         if (slotPanel != null) slotPanel.SetActive(true);
 
-        KillSeqOnly();
-
-        // ★同フレームで3つ同時スタート
-        reelL.StartLoop();
-        reelC.StartLoop();
-        reelR.StartLoop();
+        // 既存ルーチン停止
+        token++;
+        if (spinRoutine != null)
+        {
+            StopCoroutine(spinRoutine);
+            spinRoutine = null;
+        }
 
         centerStopRequested = false;
         state = State.SpinningLR;
 
-        // 左右だけ Sequence で止める
-        seq = DOTween.Sequence().SetUpdate(true);
-
-        seq.AppendInterval(preSpinTime);
-
-        // 左停止
-        seq.Append(reelL.StopAt(iL, extraSteps));
-        seq.AppendInterval(stopGap);
-
-        // 右停止
-        seq.Append(reelR.StopAt(iR, extraSteps));
-        seq.AppendInterval(stopGap);
-
-        // 右停止後：リーチならPUSH待ち、無ければ即中央停止へ
-        seq.AppendCallback(() =>
-        {
-            // 念のため中央が回っていることを保証
-            reelC.StartLoop();
-
-            if (onBeforeStopCenter != null)
-            {
-                state = State.WaitingPush;
-                Debug.Log("[SLOT] WAIT PUSH (center keeps spinning)");
-
-                // 外部に resume を渡す（PUSHで resume() が呼ばれたら中央停止）
-                onBeforeStopCenter.Invoke(() =>
-                {
-                    StopCenter(iC, tL, tC, tR, onFinished);
-                });
-            }
-            else
-            {
-                // リーチ無し＝即中央停止
-                StopCenter(iC, tL, tC, tR, onFinished);
-            }
-        });
-
-        // Sequence はここで役目終了（中央停止は別系統）
-        seq.OnComplete(() =>
-        {
-            // ここでは何もしない：中央停止が終わったら onFinished などを呼ぶ
-        });
+        int myToken = token;
+        spinRoutine = StartCoroutine(SpinFlowRoutine(
+            myToken, iL, iC, iR, tL, tC, tR, onBeforeStopCenter, onFinished));
     }
 
-    private void StopCenter(int targetIndexC, int tL, int tC, int tR, Action onFinished)
+    private IEnumerator SpinFlowRoutine(
+        int myToken,
+        int iL, int iC, int iR,
+        int tL, int tC, int tR,
+        Action<Action> onBeforeStopCenter,
+        Action onFinished)
     {
-        if (centerStopRequested) return; // 多重防止
+        // UIが落ち着くまで待つ（SetActive直後のズレ対策）
+        yield return new WaitForEndOfFrame();
+        if (myToken != token) yield break;
+
+        // ★ここで3つ同時に回転開始（同時性はここで保証）
+        reelL.StartLoop(true);
+        reelC.StartLoop(true);
+        reelR.StartLoop(true);
+
+        // 回転している時間
+        yield return WaitSecondsRealtime(preSpinTime);
+        if (myToken != token) yield break;
+
+        // ★左停止（呼ぶのはこの瞬間だけ）
+        yield return StopReelAndWait(reelL, iL);
+        if (myToken != token) yield break;
+
+        yield return WaitSecondsRealtime(stopGap);
+        if (myToken != token) yield break;
+
+        // ★右停止
+        yield return StopReelAndWait(reelR, iR);
+        if (myToken != token) yield break;
+
+        yield return WaitSecondsRealtime(stopGap);
+        if (myToken != token) yield break;
+
+        // 右停止後：リーチならPUSH待ち、無ければ中央停止
+        if (onBeforeStopCenter != null)
+        {
+            state = State.WaitingPush;
+            Debug.Log("[SLOT] WAIT PUSH (center keeps spinning)");
+
+            bool resumed = false;
+            onBeforeStopCenter.Invoke(() => resumed = true);
+
+            // PUSHされるまで待つ（中央は回り続ける）
+            while (!resumed)
+            {
+                if (myToken != token) yield break;
+                yield return null;
+            }
+        }
+
+        // 中央停止
+        yield return StopCenterAndFinish(myToken, reelC, iC, tL, tC, tR, onFinished);
+    }
+
+    private IEnumerator StopReelAndWait(ReelControllerTween reel, int targetIndex)
+    {
+        bool done = false;
+        reel.StopAt(targetIndex, extraSteps, () => done = true);
+        while (!done) yield return null;
+    }
+
+    private IEnumerator StopCenterAndFinish(int myToken, ReelControllerTween reel, int targetIndexC, int tL, int tC, int tR, Action onFinished)
+    {
+        if (centerStopRequested) yield break;
         centerStopRequested = true;
 
         state = State.StoppingCenter;
 
-        // ★ここで初めて StopAt を呼ぶ（＝ここまで中央は止まらない）
-        reelC.StopAt(targetIndexC, extraSteps, () =>
+        bool done = false;
+        reel.StopAt(targetIndexC, extraSteps, () => done = true);
+
+        while (!done)
         {
-            Debug.Log($"[SLOT FINISH] RESULT L={tL} C={tC} R={tR}");
+            if (myToken != token) yield break;
+            yield return null;
+        }
 
-            state = State.Idle;
+        Debug.Log($"[SLOT FINISH] RESULT L={tL} C={tC} R={tR}");
 
-            onFinished?.Invoke();
+        state = State.Idle;
+        spinRoutine = null;
 
-            TryDequeueAndStartNext();
-        });
+        onFinished?.Invoke();
+        TryDequeueAndStartNext();
+    }
+
+    private static IEnumerator WaitSecondsRealtime(float seconds)
+    {
+        float t = 0f;
+        while (t < seconds)
+        {
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
     }
 
     private void TryDequeueAndStartNext()
@@ -182,18 +217,16 @@ public class SlotMachineTweenUI : MonoBehaviour
         StartSpinInternal(req.tL, req.tC, req.tR, req.onBeforeStopCenter, req.onFinished);
     }
 
-    private void KillSeqOnly()
-    {
-        if (seq != null)
-        {
-            if (seq.IsActive()) seq.Kill();
-            seq = null;
-        }
-    }
-
     public void Hide()
     {
-        KillSeqOnly();
+        token++;
+
+        if (spinRoutine != null)
+        {
+            StopCoroutine(spinRoutine);
+            spinRoutine = null;
+        }
+
         state = State.Idle;
         queue.Clear();
         centerStopRequested = false;
