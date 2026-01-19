@@ -17,6 +17,11 @@ public class ReachFxPlayer : MonoBehaviour, IReachPlayer
     [SerializeField] private float hold = 0.35f;
     [SerializeField] private float fadeOut = 0.15f;
 
+    [SerializeField] private VideoFxCatalog catalog;
+    [SerializeField] private VideoFxPlayerUI videoPlayerUI;
+    [SerializeField] private LcdLayerController layer;
+
+
     public Tween PlayReachIntro(bool isWin)
     {
         HideAll();
@@ -96,4 +101,25 @@ public class ReachFxPlayer : MonoBehaviour, IReachPlayer
             root.gameObject.SetActive(false);
         }
     }
+
+    public void PlayReachVideo(string key, bool videoAboveSlot)
+    {
+        layer.SetVideoAboveSlot(videoAboveSlot);
+
+        if (catalog != null && catalog.TryGet(key, out var e))
+        {
+            videoPlayerUI.Play(e.clip, e.loopByDefault, 0.15f);
+        }
+        else
+        {
+            Debug.LogWarning($"VideoFx not found: {key}");
+        }
+    }
+
+    public void StopReachVideo()
+    {
+        videoPlayerUI.Stop(0.12f);
+    }
+
+
 }
