@@ -54,20 +54,31 @@ public class VideoFxPlayerUI : MonoBehaviour
         FadeTo(1f, fadeIn);
     }
 
-    public void Stop(float fadeOut = 0.15f, Action onStopped = null)
+    public void Pause()
     {
-        if (videoPlayer == null)
-        {
-            onStopped?.Invoke();
-            return;
-        }
+        if (videoPlayer == null) return;
 
-        FadeTo(0f, fadeOut, () =>
-        {
-            videoPlayer.Stop();
-            if (rawImage != null) rawImage.enabled = false;
-            onStopped?.Invoke();
-        });
+        // š ÅŒã‚ÌƒtƒŒ[ƒ€‚ÅŽ~‚ß‚éi•\Ž¦‚ÍˆÛŽj
+        if (videoPlayer.isPlaying)
+            videoPlayer.Pause();
+
+        // š alpha / enabled ‚ÍˆêØG‚ç‚È‚¢
+    }
+
+    public void Hide(float fadeOut = 0.12f)
+    {
+        if (canvasGroup == null) return;
+
+        canvasGroup.DOFade(0f, fadeOut)
+            .SetUpdate(true)
+            .OnComplete(() =>
+            {
+                if (videoPlayer != null)
+                    videoPlayer.Stop();   // Š®‘S’âŽ~
+
+                if (rawImage != null)
+                    rawImage.enabled = false;
+            });
     }
 
     public void ForceStop()

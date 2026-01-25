@@ -53,22 +53,28 @@ public class LotteryManager : MonoBehaviour
             return;
         }
 
+
         // ★ 中央停止直前で止める
         slotUI.StartSpinWithTargets(
             L, C, R,
             onBeforeStopCenter: (resume) =>
             {
-                // リーチ時だけPUSH待ち（この間、中央は回り続ける）
                 if (isReach && reachDirector != null)
                 {
-                    reachDirector.PlayReachUntilPush(isWin, () =>
-                    {
-                        resume(); // PUSH後に中央停止へ
-                    });
+                    // ★ここで動画演出を決定して渡す
+                    string videoKey = isWin ? "reach.strong" : "reach.normal";
+
+                    reachDirector.PlayReachUntilPush(
+                        isWin,
+                        onPushed: () =>
+                        {
+                            resume(); // PUSH後に中央停止へ
+                        },
+                        videoKey: videoKey
+                    );
                 }
                 else
                 {
-                    // リーチじゃないなら即続行
                     resume();
                 }
             },
@@ -95,5 +101,7 @@ public class LotteryManager : MonoBehaviour
                     FinishAndMaybeHide();
             }
         );
+
+
     }
 }

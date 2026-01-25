@@ -2342,7 +2342,7 @@ VideoPlayer:
   m_ControlledAudioTrackCount: 1
   m_PlayOnAwake: 1
   m_SkipOnDrop: 1
-  m_Looping: 1
+  m_Looping: 0
   m_WaitForFirstFrame: 1
   m_FrameReadyEventEnabled: 0
   m_VideoShaders: []
@@ -11098,9 +11098,9 @@ MonoBehaviour:
   fadeIn: 0.15
   hold: 0.35
   fadeOut: 0.15
-  catalog: {fileID: 0}
-  videoPlayerUI: {fileID: 0}
-  layer: {fileID: 0}
+  catalog: {fileID: 11400000, guid: e052f779edfaeb9418516ca6e78bbff8, type: 2}
+  videoPlayerUI: {fileID: 357957425}
+  layer: {fileID: 1698315490}
 --- !u!114 &1762992345
 MonoBehaviour:
   m_ObjectHideFlags: 0

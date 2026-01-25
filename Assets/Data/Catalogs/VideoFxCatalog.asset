@@ -15,4 +15,13 @@ MonoBehaviour:
   entries:
   - key: reach.normal
     clip: {fileID: 32900000, guid: db7714015ccdaf848929d9c13f4ece54, type: 3}
-    loopByDefault: 1
+    loopByDefault: 0
+    pushDelay: 1.8
+    stopFade: 0.12
+    videoAboveSlot: 1
+  - key: reach.strong
+    clip: {fileID: 32900000, guid: db7714015ccdaf848929d9c13f4ece54, type: 3}
+    loopByDefault: 0
+    pushDelay: 1.8
+    stopFade: 0.12
+    videoAboveSlot: 1

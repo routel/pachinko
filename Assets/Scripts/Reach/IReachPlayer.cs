@@ -19,7 +19,23 @@ public interface IReachPlayer
     Tween PlayResult(bool isWin);
 
     /// <summary>
+    /// リーチ中の動画を再生（keyで指定）
+    /// </summary>
+    void PlayReachVideo(string key, bool videoAboveSlot);
+
+
+
+
+
+    void PauseReachVideo();
+    void HideReachVideo();
+
+
+
+    /// <summary>
     /// 後始末（UIを消す）
     /// </summary>
     void HideAll();
+
+    bool TryGetVideoEntry(string key, out VideoFxCatalog.Entry entry);
 }

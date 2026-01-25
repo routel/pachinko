@@ -56,6 +56,15 @@ public class ReachFxPlayer : MonoBehaviour, IReachPlayer
         return s;
     }
 
+    public bool TryGetVideoEntry(string key, out VideoFxCatalog.Entry entry)
+    {
+        if (catalog != null && catalog.TryGet(key, out entry))
+            return true;
+
+        entry = null;
+        return false;
+    }
+
     public void ShowPush(Action onPressed)
     {
         if (pushButtonObj != null)
@@ -116,9 +125,16 @@ public class ReachFxPlayer : MonoBehaviour, IReachPlayer
         }
     }
 
-    public void StopReachVideo()
+    public void PauseReachVideo()
     {
-        videoPlayerUI.Stop(0.12f);
+        if (videoPlayerUI == null) return;
+        videoPlayerUI.Pause();
+    }
+
+    public void HideReachVideo()
+    {
+        if (videoPlayerUI == null) return;
+        videoPlayerUI.Hide(0.12f);
     }
 
 

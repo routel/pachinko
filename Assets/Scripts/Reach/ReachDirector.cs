@@ -34,7 +34,11 @@ public class ReachDirector : MonoBehaviour
     /// <summary>
     /// リーチ導入→PUSH待ち。押されたら onPushed を呼ぶ（ここでは結果演出しない）
     /// </summary>
-    public void PlayReachUntilPush(bool isWin, Action onPushed)
+    public void PlayReachUntilPush(
+        bool isWin,
+        Action onPushed,
+        string videoKey
+    )
     {
         if (player == null)
         {
@@ -43,29 +47,58 @@ public class ReachDirector : MonoBehaviour
         }
 
         if (seq != null && seq.IsActive()) seq.Kill();
-        seq = DOTween.Sequence();
+        seq = DOTween.Sequence().SetUpdate(true);
 
+        // ① イントロ表示（リーチ文字など）
         seq.Append(player.PlayReachIntro(isWin));
 
-        if (afterIntroWait > 0f)
-            seq.AppendInterval(afterIntroWait);
+        // ② 動画取得
+        if (!player.TryGetVideoEntry(videoKey, out var entry))
+        {
+            // 動画が無いなら即PUSH
+            seq.AppendCallback(() => ShowPushAndWait(onPushed));
+            return;
+        }
 
+        // ③ 動画再生
         seq.AppendCallback(() =>
         {
-            bool pressed = false;
+            player.PlayReachVideo(videoKey, entry.videoAboveSlot);
+        });
 
-            player.ShowPush(() =>
-            {
-                if (pressed) return;
-                pressed = true;
-                Debug.Log("[Reach] PUSH pressed");
+        // ④ 動画を見せる時間（Catalog管理）
+        seq.AppendInterval(entry.pushDelay);
 
-                // Intro側のシーケンスはここで終了させる（次へ）
-                if (seq != null && seq.IsActive()) seq.Kill();
-                onPushed?.Invoke();
-            });
+        // ⑤ 動画停止
+        seq.AppendCallback(() =>
+        {
+            player.PauseReachVideo(); // ★ 止め絵を残す
+        });
 
-            Debug.Log("[Reach] waiting for PUSH...");
+        // ⑥ 停止フェード待ち
+        if (entry.stopFade > 0f)
+            seq.AppendInterval(entry.stopFade);
+
+        // ⑦ PUSH表示 & 待機
+        seq.AppendCallback(() =>
+        {
+            ShowPushAndWait(onPushed);
+        });
+    }
+
+    private void ShowPushAndWait(Action onPushed)
+    {
+        bool pressed = false;
+
+        // ★ ここで必ずUIを生かす
+        player.ShowPush(() =>
+        {
+            if (pressed) return;
+            pressed = true;
+
+            player.HideReachVideo();  // フェードアウト
+            if (seq != null && seq.IsActive()) seq.Kill();
+            onPushed?.Invoke();
         });
     }
 
