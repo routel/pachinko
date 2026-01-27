@@ -1,10 +1,15 @@
+using DG.Tweening;
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
+
+    public event Action HitStarted;
+    public event Action HitEnded;
 
     [Header("UI (optional)")]
     [SerializeField] private TMP_Text inCounterText;   // IN: ‚Ì•\Ž¦
@@ -17,6 +22,8 @@ public class GameManager : MonoBehaviour
     public int Balls { get; private set; }
     public bool IsHit { get; private set; }
 
+
+    private Coroutine hitCo;
 
     private void Awake()
     {
@@ -55,25 +62,43 @@ public class GameManager : MonoBehaviour
         //Debug.Log($"Ball In! InCount = {InCount}");
     }
 
-    private void RefreshUI()
-    {
-        if (inCounterText != null) inCounterText.text = $"IN: {InCount}";
-        if (ballsText != null) ballsText.text = $"BALLS: {Balls}";
-    }
-
     public void BeginHit(float hitTimeSec)
     {
         if (IsHit) return;
-        StartCoroutine(CoHit(hitTimeSec));
+
+        Debug.Log($"[HIT] BeginHit start. duration={hitTimeSec:0.00}s");
+        IsHit = true;
+        RefreshUI();
+
+        HitStarted?.Invoke();
+
+        DOVirtual.DelayedCall(hitTimeSec, () =>
+        {
+            Debug.Log("[HIT] BeginHit end.");
+            IsHit = false;
+            RefreshUI();
+            HitEnded?.Invoke();
+        }).SetUpdate(true);
     }
 
     private IEnumerator CoHit(float hitTimeSec)
     {
         IsHit = true;
-        RefreshUI(); // ‚ ‚é‚È‚ç
+        RefreshUI();
+        HitStarted?.Invoke();
+
         yield return new WaitForSeconds(hitTimeSec);
+
         IsHit = false;
-        RefreshUI(); // ‚ ‚é‚È‚ç
+        RefreshUI();
+        HitEnded?.Invoke();
+
+        hitCo = null;
+    }
+    private void RefreshUI()
+    {
+        if (inCounterText != null) inCounterText.text = $"IN: {InCount}";
+        if (ballsText != null) ballsText.text = $"BALLS: {Balls}";
     }
 
 

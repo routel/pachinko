@@ -22,15 +22,8 @@ public interface IReachPlayer
     /// リーチ中の動画を再生（keyで指定）
     /// </summary>
     void PlayReachVideo(string key, bool videoAboveSlot);
-
-
-
-
-
     void PauseReachVideo();
     void HideReachVideo();
-
-
 
     /// <summary>
     /// 後始末（UIを消す）
@@ -38,4 +31,11 @@ public interface IReachPlayer
     void HideAll();
 
     bool TryGetVideoEntry(string key, out VideoFxCatalog.Entry entry);
+
+    void PlayWinVideoFromHold(string key);
+
+    void PlayWinLoop(string winVideoKey);
+
+    void StopWinLoop(float fadeOut = 0.2f);
+
 }

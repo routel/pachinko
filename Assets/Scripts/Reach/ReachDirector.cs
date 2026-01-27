@@ -40,8 +40,11 @@ public class ReachDirector : MonoBehaviour
         string videoKey
     )
     {
+        Debug.Log($"[ReachDirector] PlayReachUntilPush start. isWin={isWin}, videoKey={videoKey}");
+
         if (player == null)
         {
+            Debug.LogWarning("[ReachDirector] player is null -> resume immediately");
             onPushed?.Invoke();
             return;
         }
@@ -49,13 +52,14 @@ public class ReachDirector : MonoBehaviour
         if (seq != null && seq.IsActive()) seq.Kill();
         seq = DOTween.Sequence().SetUpdate(true);
 
-        // ‡@ ƒCƒ“ƒgƒ•\Ž¦iƒŠ[ƒ`•¶Žš‚È‚Çj
+        // ‡@ ƒCƒ“ƒgƒ
+        Debug.Log("[ReachDirector] Intro start");
         seq.Append(player.PlayReachIntro(isWin));
 
         // ‡A “®‰æŽæ“¾
         if (!player.TryGetVideoEntry(videoKey, out var entry))
         {
-            // “®‰æ‚ª–³‚¢‚È‚ç‘¦PUSH
+            Debug.LogWarning($"[ReachDirector] Video not found: {videoKey}");
             seq.AppendCallback(() => ShowPushAndWait(onPushed));
             return;
         }
@@ -63,25 +67,28 @@ public class ReachDirector : MonoBehaviour
         // ‡B “®‰æÄ¶
         seq.AppendCallback(() =>
         {
+            Debug.Log($"[ReachDirector] PlayReachVideo key={videoKey}");
             player.PlayReachVideo(videoKey, entry.videoAboveSlot);
         });
 
-        // ‡C “®‰æ‚ðŒ©‚¹‚éŽžŠÔiCatalogŠÇ—j
+        // ‡C Ä¶‘Ò‚¿
+        Debug.Log($"[ReachDirector] Wait pushDelay={entry.pushDelay}");
         seq.AppendInterval(entry.pushDelay);
 
-        // ‡D “®‰æ’âŽ~
+        // ‡D “®‰æ’âŽ~iŽ~‚ßŠGj
         seq.AppendCallback(() =>
         {
-            player.PauseReachVideo(); // š Ž~‚ßŠG‚ðŽc‚·
+            Debug.Log("[ReachDirector] PauseReachVideo (hold frame)");
+            player.PauseReachVideo();
         });
 
-        // ‡E ’âŽ~ƒtƒF[ƒh‘Ò‚¿
         if (entry.stopFade > 0f)
             seq.AppendInterval(entry.stopFade);
 
-        // ‡F PUSH•\Ž¦ & ‘Ò‹@
+        // ‡E PUSH•\Ž¦
         seq.AppendCallback(() =>
         {
+            Debug.Log("[ReachDirector] Show PUSH");
             ShowPushAndWait(onPushed);
         });
     }
@@ -96,9 +103,10 @@ public class ReachDirector : MonoBehaviour
             if (pressed) return;
             pressed = true;
 
-            player.HideReachVideo();  // ƒtƒF[ƒhƒAƒEƒg
+            // š ReachDirector ‚Å‚Í“®‰æ‚ÉG‚ç‚È‚¢
             if (seq != null && seq.IsActive()) seq.Kill();
-            onPushed?.Invoke();
+
+            onPushed?.Invoke(); // uPUSH‚³‚ê‚½v‚¾‚¯’Ê’m
         });
     }
 
@@ -113,6 +121,16 @@ public class ReachDirector : MonoBehaviour
             return;
         }
 
+        // š “–‚½‚è‚È‚çAŽ~‚ßŠG ¨ “–‚½‚è“®‰æ
+        if (isWin)
+        {
+            player.PlayWinVideoFromHold("result.win");
+        }
+        else
+        {
+            player.HideReachVideo();
+        }
+
         if (seq != null && seq.IsActive()) seq.Kill();
         seq = DOTween.Sequence();
 
@@ -124,4 +142,52 @@ public class ReachDirector : MonoBehaviour
             onFinish?.Invoke();
         });
     }
+
+    public void StartWinLoop()
+    {
+        player?.PlayWinLoop("result.win");
+    }
+
+    public void EndWinLoop()
+    {
+        player?.StopWinLoop();
+    }
+
+    private void OnEnable()
+    {
+        Debug.Log("[ReachDirector] OnEnable subscribe HitStarted/HitEnded");
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.HitStarted += OnHitStarted;
+            GameManager.Instance.HitEnded += OnHitEnded;
+        }
+        else
+        {
+            Debug.LogWarning("[ReachDirector] GameManager.Instance is null on OnEnable");
+        }
+    }
+
+    private void OnDisable()
+    {
+        Debug.Log("[ReachDirector] OnDisable unsubscribe HitStarted/HitEnded");
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.HitStarted -= OnHitStarted;
+            GameManager.Instance.HitEnded -= OnHitEnded;
+        }
+    }
+
+    private void OnHitStarted()
+    {
+        Debug.Log("[ReachDirector] OnHitStarted -> PlayWinLoop(result.win)");
+        player?.PlayWinLoop("result.win");
+    }
+
+    private void OnHitEnded()
+    {
+        Debug.Log("[ReachDirector] OnHitEnded -> StopWinLoop(0.2)");
+        player?.StopWinLoop(0.2f);
+    }
+
+
 }

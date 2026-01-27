@@ -54,6 +54,52 @@ public class VideoFxPlayerUI : MonoBehaviour
         FadeTo(1f, fadeIn);
     }
 
+    public void PlayNext(VideoClip nextClip, bool loop, float flashAlpha = 0.6f, float flashTime = 0.08f)
+    {
+        if (videoPlayer == null || nextClip == null)
+            return;
+
+        // 念のため再生停止（表示は残す）
+        videoPlayer.Stop();
+
+        // フラッシュ（白く一瞬）
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.DOFade(flashAlpha, flashTime)
+                .SetLoops(2, LoopType.Yoyo)
+                .SetUpdate(true);
+        }
+
+        // クリップ差し替え
+        videoPlayer.clip = nextClip;
+        videoPlayer.isLooping = loop;
+
+        // 次フレームで再生（確実）
+        DOVirtual.DelayedCall(0f, () =>
+        {
+            videoPlayer.Play();
+        }).SetUpdate(true);
+    }
+
+    public void PlayFromHold(VideoClip nextClip, bool loop, float fadeIn = 0.1f)
+    {
+        if (videoPlayer == null || rawImage == null) return;
+
+        // 止め絵状態から差し替え
+        videoPlayer.Stop();
+        videoPlayer.clip = nextClip;
+        videoPlayer.isLooping = loop;
+        videoPlayer.Play();
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.DOFade(1f, fadeIn);
+        }
+    }
+
+
     public void Pause()
     {
         if (videoPlayer == null) return;
