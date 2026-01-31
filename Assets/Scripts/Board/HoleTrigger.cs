@@ -96,9 +96,17 @@ public class HoleTrigger : MonoBehaviour
                 break;
 
             case HoleType.Prize:
-                // Prize は当たり中のみ OnTriggerEnter2D で通している
-                if (GameManager.Instance != null && config.prizeBalls != 0)
-                    GameManager.Instance.AddBalls(config.prizeBalls);
+                // Prize は当たり中＆ゲート開のみ OnTriggerEnter2D で通している
+                if (HitDirector.Instance != null)
+                {
+                    HitDirector.Instance.OnPrizeIn();
+                }
+                else
+                {
+                    // フォールバック（保険）
+                    if (GameManager.Instance != null && config.prizeBalls != 0)
+                        GameManager.Instance.AddBalls(config.prizeBalls);
+                }
                 break;
 
             case HoleType.Out:
