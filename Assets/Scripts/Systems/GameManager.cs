@@ -66,20 +66,46 @@ public class GameManager : MonoBehaviour
     {
         if (IsHit) return;
 
-        Debug.Log($"[HIT] BeginHit start. duration={hitTimeSec:0.00}s");
+        Debug.Log("[HIT] BeginHit start.");
         IsHit = true;
         RefreshUI();
 
         HitStarted?.Invoke();
 
-        DOVirtual.DelayedCall(hitTimeSec, () =>
-        {
-            Debug.Log("[HIT] BeginHit end.");
-            IsHit = false;
-            RefreshUI();
-            HitEnded?.Invoke();
-        }).SetUpdate(true);
+        // š ŽÀÛ‚Ìis‚Í HitDirector ‚É”C‚¹‚é
+        HitDirector.Instance.BeginHit();
     }
+
+    public void EndHitFromDirector()
+    {
+        if (!IsHit) return;
+
+        Debug.Log("[HIT] EndHit (from HitDirector)");
+        IsHit = false;
+        RefreshUI();
+
+        HitEnded?.Invoke();
+    }
+
+
+    //public void BeginHit(float hitTimeSec)
+    //{
+    //    if (IsHit) return;
+
+    //    Debug.Log($"[HIT] BeginHit start. duration={hitTimeSec:0.00}s");
+    //    IsHit = true;
+    //    RefreshUI();
+
+    //    HitStarted?.Invoke();
+
+    //    DOVirtual.DelayedCall(hitTimeSec, () =>
+    //    {
+    //        Debug.Log("[HIT] BeginHit end.");
+    //        IsHit = false;
+    //        RefreshUI();
+    //        HitEnded?.Invoke();
+    //    }).SetUpdate(true);
+    //}
 
     private IEnumerator CoHit(float hitTimeSec)
     {

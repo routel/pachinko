@@ -3,80 +3,13 @@ using DG.Tweening;
 
 public class HoleTrigger : MonoBehaviour
 {
-    [Header("Gate (for Prize)")]
-    [SerializeField] private bool isGateControlled = false;
-    [SerializeField] private Collider2D gateCollider;
-
     [Header("Entity Data")]
     [SerializeField] private HoleConfig config;
 
     [Header("Ball Tag")]
     [SerializeField] private string ballTag = "Ball";
 
-    [Header("Visibility (for Prize)")]
-    [SerializeField] private bool isVisibilityControlled = false;
-    [SerializeField] private Renderer[] renderersToToggle;
-
-    private bool lastGateActive;
-
-    private void Awake()
-    {
-        if (gateCollider == null)
-            gateCollider = GetComponent<Collider2D>();
-
-        if (renderersToToggle == null || renderersToToggle.Length == 0)
-        {
-            var r = GetComponent<Renderer>();
-            if (r != null) renderersToToggle = new[] { r };
-        }
-    }
-
-    private void Start()
-    {
-        lastGateActive = !GetDesiredActive();
-        ApplyGateVisual(force: true);
-    }
-
-    private void Update()
-    {
-        ApplyGateVisual(force: false);
-    }
-
-    private bool GetDesiredActive()
-    {
-        if (config == null || config.type != HoleType.Prize) return true; // Prize以外は常に表示
-        return GameManager.Instance != null && GameManager.Instance.IsHit;
-    }
-
-    private void ApplyGateVisual(bool force)
-    {
-        if (config == null || config.type != HoleType.Prize) return;
-
-        bool active = GetDesiredActive();
-        if (!force && active == lastGateActive) return;
-
-        lastGateActive = active;
-        SetActiveForGate(active);
-    }
-
-    public void SetActiveForGate(bool active)
-    {
-        // Collider（判定）
-        if (isGateControlled && gateCollider != null)
-            gateCollider.enabled = active;
-
-        // 見た目（表示）
-        if (isVisibilityControlled && renderersToToggle != null)
-        {
-            foreach (var r in renderersToToggle)
-                if (r != null) r.enabled = active;
-        }
-    }
-
-    public void SetGateOpen(bool open)
-    {
-        SetActiveForGate(open);
-    }
+    [SerializeField] private PrizeGateController prizeGate; // Inspectorで割り当て
 
     private void OnTriggerEnter2D(Collider2D other)
     {
@@ -84,14 +17,19 @@ public class HoleTrigger : MonoBehaviour
 
         if (config == null)
         {
-            Debug.LogError("HoleTrigger: config is not set.");
+            Debug.LogError("[HoleTrigger] config is not set.");
             return;
         }
 
-        // Prizeは当たり中だけ有効
+        // Prize は当たり中だけ有効（論理ロック）
+        // ※ 物理ロック（開閉）は PrizeGateController 側の Collider で行う
         if (config.type == HoleType.Prize)
         {
             if (GameManager.Instance == null || !GameManager.Instance.IsHit)
+                return;
+
+            // ★塞がり中は無効（吸い込みも賞球もしない）
+            if (prizeGate != null && !prizeGate.IsOpen)
                 return;
         }
 
@@ -133,7 +71,7 @@ public class HoleTrigger : MonoBehaviour
 
         Vector3 targetPos = transform.position;
 
-        Sequence seq = DOTween.Sequence()
+        DOTween.Sequence()
             .Join(bt.DOMove(targetPos, duration).SetEase(Ease.InQuad))
             .Join(bt.DOScale(targetScale, duration).SetEase(Ease.InQuad))
             .SetLink(ball, LinkBehaviour.KillOnDestroy)
@@ -158,6 +96,7 @@ public class HoleTrigger : MonoBehaviour
                 break;
 
             case HoleType.Prize:
+                // Prize は当たり中のみ OnTriggerEnter2D で通している
                 if (GameManager.Instance != null && config.prizeBalls != 0)
                     GameManager.Instance.AddBalls(config.prizeBalls);
                 break;
