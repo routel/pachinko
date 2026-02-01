@@ -314,5 +314,14 @@ public class ReachFxPlayer : MonoBehaviour, IReachPlayer
         Debug.Log("[ReachFxPlayer] HideReachVideo -> videoPlayerUI.Hide(0.12)");
         videoPlayerUI?.Hide(0.12f);
     }
+    /// <summary>
+    /// いま出ている動画を全部片付ける（状態に依存せず安全に呼べる）
+    /// </summary>
+    public void StopAllVideos(float fadeOut = 0.2f)
+    {
+        // Reach/Win どちらの経路でも最終的に Hide で消える想定
+        if (videoPlayerUI != null)
+            videoPlayerUI.Hide(fadeOut);
+    }
 
 }

@@ -92,7 +92,14 @@ public class HoleTrigger : MonoBehaviour
         {
             case HoleType.Start:
                 if (LotteryManager.Instance != null)
-                    LotteryManager.Instance.PlayFromStartHole();
+                {
+                    bool accepted = LotteryManager.Instance.TryRequestStart();
+                    // accepted==false なら「無効」（玉は吸われて消えるが抽選は起動しない）
+                    if (!accepted)
+                    {
+                        Debug.Log("[HoleTrigger] Start ignored (hold full or disabled).");
+                    }
+                }
                 break;
 
             case HoleType.Prize:

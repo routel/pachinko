@@ -25,9 +25,11 @@ public class HitDirector : MonoBehaviour
 
     // 現在ラウンドの入賞数
     private int currentRoundInCount = 0;
+    public int CurrentRoundInCount => currentRoundInCount;
 
     // このラウンドの目標入賞数
     private int targetInThisRound = 0;
+    public int TargetInThisRound => targetInThisRound;
 
     // ラウンド終了処理の多重実行防止
     private bool isEndingRound = false;
@@ -38,6 +40,7 @@ public class HitDirector : MonoBehaviour
     // ★追加：当たり1回の総払い出し
     private int totalPayoutThisHit = 0;
 
+    public int TotalPayoutThisHit => totalPayoutThisHit; // まだ無いなら Step B で追加
     private void Awake()
     {
 
@@ -67,6 +70,8 @@ public class HitDirector : MonoBehaviour
             Debug.LogWarning("[HitDirector] Already in hit.");
             return;
         }
+
+        
 
         Debug.Log("[HitDirector] HIT START");
 

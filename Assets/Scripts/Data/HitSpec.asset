@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e5d59c56fa74fc44a27baa6668cee6a, type: 3}
   m_Name: HitSpec
   m_EditorClassIdentifier: 
-  roundCount: 10
+  roundCount: 3
   ballsPerPrizeIn: 10
   minInPerRound: 8
   maxInPerRound: 12

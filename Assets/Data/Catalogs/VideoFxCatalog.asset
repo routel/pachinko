@@ -31,3 +31,9 @@ MonoBehaviour:
     pushDelay: 1.8
     stopFade: 0.12
     videoAboveSlot: 1
+  - key: win_loop
+    clip: {fileID: 32900000, guid: ce6ad617ef6185d4182c13d1f25a468b, type: 3}
+    loopByDefault: 1
+    pushDelay: 1.8
+    stopFade: 0.12
+    videoAboveSlot: 1
