@@ -104,7 +104,8 @@ public class HitDirector : MonoBehaviour
         seq = DOTween.Sequence().SetUpdate(true);
 
         OnRoundStart?.Invoke(currentRound);
-        if (prizeGate != null) prizeGate.StartCycle();
+        if (prizeGate != null)
+            prizeGate.StartCycle(spec.gateOpenTime, spec.gateCloseTime);
 
         // 保険タイマー
         if (spec.maxRoundSeconds > 0f)

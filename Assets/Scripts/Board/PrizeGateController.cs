@@ -8,13 +8,15 @@ public class PrizeGateController : MonoBehaviour
     [Header("Cap Visual (Gray Circle)")]
     [SerializeField] private Renderer capRenderer; // ClosePrize の SpriteRenderer
 
-    [Header("Open/Close Cycle (per round)")]
-    [SerializeField] private float openTime = 0.30f;
-    [SerializeField] private float closeTime = 0.50f;
+    //[Header("Open/Close Cycle (per round)")]
+    //[SerializeField] private float openTime = 0.30f;
+    //[SerializeField] private float closeTime = 0.50f;
 
     private Tween cycleTween;
     private bool isOpen;
     private bool cycling;
+
+    [SerializeField] private bool debugLog = false;
 
     public bool IsOpen => isOpen;   // isOpen は Open/Close で切り替えてるやつ
 
@@ -25,17 +27,18 @@ public class PrizeGateController : MonoBehaviour
         isOpen = false;
     }
 
-    public void StartCycle()
+    public void StartCycle(float openSeconds, float closeSeconds)
     {
         if (cycling) return;
         cycling = true;
 
         StopCycleInternal(killOnly: true);
 
-        float ot = Mathf.Max(0.05f, openTime);
-        float ct = Mathf.Max(0.05f, closeTime);
+        float ot = Mathf.Max(0.05f, openSeconds);
+        float ct = Mathf.Max(0.05f, closeSeconds);
 
-        Debug.Log($"[Gate] StartCycle id={GetInstanceID()} openTime={openTime} closeTime={closeTime} (clamped {ot}/{ct}) frame={Time.frameCount}");
+        if (debugLog)
+            Debug.Log($"[Gate] StartCycle id={GetInstanceID()} open={ot} close={ct} frame={Time.frameCount}");
 
         cycleTween = DOTween.Sequence()
             .SetUpdate(true)
@@ -60,7 +63,7 @@ public class PrizeGateController : MonoBehaviour
         {
             cycling = false;
             Close();
-            Debug.Log("[Gate] StopCycle");
+            if (debugLog) Debug.Log("[Gate] StopCycle");
         }
     }
 
@@ -69,7 +72,7 @@ public class PrizeGateController : MonoBehaviour
         if (isOpen) return;       // ★既に開なら何もしない
         isOpen = true;
         SetCapVisible(false);
-        Debug.Log("[Gate] OPEN (cap off)");
+        if (debugLog) Debug.Log("[Gate] OPEN (cap off)");
     }
 
     public void Close()
@@ -77,7 +80,7 @@ public class PrizeGateController : MonoBehaviour
         if (!isOpen) return;      // ★既に閉なら何もしない
         isOpen = false;
         SetCapVisible(true);
-        Debug.Log("[Gate] CLOSE (cap on)");
+        if (debugLog) Debug.Log("[Gate] CLOSE (cap on)");
     }
 
     private void SetCapVisible(bool visible)

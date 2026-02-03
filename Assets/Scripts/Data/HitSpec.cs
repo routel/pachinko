@@ -18,4 +18,8 @@ public class HitSpec : ScriptableObject
 
     [Tooltip("0なら無効。詰まり保険でラウンドを強制終了する秒数")]
     public float maxRoundSeconds = 12f;
+
+    [Header("Gate (Prize open/close)")]
+    public float gateOpenTime = 0.40f;
+    public float gateCloseTime = 0.40f;
 }

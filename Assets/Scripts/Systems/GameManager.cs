@@ -46,12 +46,17 @@ public class GameManager : MonoBehaviour
     public void AddBalls(int amount)
     {
         Balls += amount;
+
+
     }
 
     public void AddInCount(int add)
     {
         InCount += add;
         //Debug.Log($"Ball In! InCount = {InCount}");
+        // šÜ‹…ƒWƒƒƒ‰ƒWƒƒƒ‰
+        if (GameSfx.Instance != null)
+            GameSfx.Instance.PlayPayoutJara();
     }
 
     public void BeginHit(float hitTimeSec)

@@ -103,6 +103,7 @@ public class HoleTrigger : MonoBehaviour
                 break;
 
             case HoleType.Prize:
+
                 // Prize ‚Í“–‚½‚è’†•ƒQ[ƒgŠJ‚Ì‚İ OnTriggerEnter2D ‚Å’Ê‚µ‚Ä‚¢‚é
                 if (HitDirector.Instance != null)
                 {
