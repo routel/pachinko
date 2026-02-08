@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class DragPlungerLauncher : MonoBehaviour
@@ -25,6 +26,15 @@ public class DragPlungerLauncher : MonoBehaviour
     [Header("Legacy (unused)")]
     [SerializeField] private float power = 12f; // 互換のため残す（未使用）
 
+    [Header("Knob Control (optional)")]
+    [SerializeField] private LaunchKnobUI knobUI;
+    [SerializeField] private bool useKnobForPower = true;     // 強さはつまみから
+    [SerializeField] private bool useKnobForFireEnable = true;// ON/OFFはつまみから
+
+    [Header("Auto Fire")]
+    [SerializeField] private float autoFireInterval = 0.8f; // ★パチンコっぽい間隔（調整用）
+    private Coroutine autoFireCo;
+
     private Camera cam;
     private bool isDragging;
     private Vector3 dragStartWorld;
@@ -35,35 +45,16 @@ public class DragPlungerLauncher : MonoBehaviour
         cam = Camera.main;
     }
 
-    private void Update()
+    public void FireFromKnob(float pull01)
     {
-        if (Input.GetMouseButtonDown(1))
-        {
-            isDragging = true;
-            dragStartWorld = GetMouseWorld();
-            pull01 = 0f;
-        }
-
-        if (isDragging && Input.GetMouseButton(1))
-        {
-            Vector3 now = GetMouseWorld();
-
-            float pull = Mathf.Max(0f, (dragStartWorld.y - now.y)); // 下に引いた分だけ
-            pull = Mathf.Min(pull, maxPullDistance);
-
-            pull01 = (maxPullDistance <= 0f) ? 0f : (pull / maxPullDistance);
-        }
-
-        if (isDragging && Input.GetMouseButtonUp(1))
-        {
-            isDragging = false;
-            Shoot(pull01);
-        }
+        Shoot(pull01);
     }
 
     private void Shoot(float pull01)
     {
         if (ballPrefab == null || spawnPoint == null) return;
+
+
 
         // ★ここで必ず消費する（成功したら弾を出す）
         if (GameManager.Instance != null)
@@ -109,4 +100,45 @@ public class DragPlungerLauncher : MonoBehaviour
         p.z = -cam.transform.position.z; // 2Dカメラ前提
         return cam.ScreenToWorldPoint(p);
     }
+
+    public void SetAutoFire(bool enabled)
+    {
+        if (enabled)
+        {
+            if (autoFireCo == null)
+                autoFireCo = StartCoroutine(CoAutoFire());
+        }
+        else
+        {
+            if (autoFireCo != null)
+            {
+                StopCoroutine(autoFireCo);
+                autoFireCo = null;
+            }
+        }
+    }
+
+    private IEnumerator CoAutoFire()
+    {
+        // ONになった瞬間の1発（気持ちいいので推奨）
+        FireOnceUsingCurrentPower();
+
+        var wait = new WaitForSeconds(autoFireInterval);
+
+        while (true)
+        {
+            yield return wait;
+            FireOnceUsingCurrentPower();
+        }
+    }
+
+    private void FireOnceUsingCurrentPower()
+    {
+        float p = 0f;
+        if (useKnobForPower && knobUI != null) p = knobUI.Pull01;
+        else p = pull01; // 予備（将来他入力があれば）
+
+        Shoot(p);
+    }
+
 }
