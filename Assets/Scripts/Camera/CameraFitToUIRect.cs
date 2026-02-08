@@ -12,6 +12,11 @@ public class CameraFitToUIRect : MonoBehaviour
     [SerializeField] private bool useUnscaledTime = true;
     [SerializeField] private bool updateEveryFrame = true;
 
+    [SerializeField] private BoardBoundsProvider boardBoundsProvider;
+    [SerializeField] private bool fitPositionToBoardBounds = true;
+    [SerializeField] private bool fitOrthoSizeToBoardBounds = false;
+    [SerializeField] private float orthoPadding = 0f;
+
     private void Reset()
     {
         targetCamera = GetComponent<Camera>();
@@ -63,5 +68,22 @@ public class CameraFitToUIRect : MonoBehaviour
         h = Mathf.Max(0f, h);
 
         targetCamera.rect = new Rect(x, y, w, h);
+
+        if (fitPositionToBoardBounds && boardBoundsProvider != null)
+        {
+            var b = boardBoundsProvider.Bounds;
+            var camPos = targetCamera.transform.position;
+            camPos.x = b.center.x;
+            camPos.y = b.center.y;
+            targetCamera.transform.position = camPos;
+        }
+
+        if (fitOrthoSizeToBoardBounds && boardBoundsProvider != null && targetCamera.orthographic)
+        {
+            var b = boardBoundsProvider.Bounds;
+            targetCamera.orthographicSize = (b.size.y * 0.5f) + orthoPadding;
+        }
+
+
     }
 }

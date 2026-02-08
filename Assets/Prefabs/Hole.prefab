@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1341586280835610649}
   - component: {fileID: 6877883913490311195}
   - component: {fileID: -2827292666709001360}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Hole
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -116,3 +116,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   config: {fileID: 0}
   ballTag: Ball
+  prizeGate: {fileID: 0}
